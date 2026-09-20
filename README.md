@@ -78,7 +78,7 @@ shows up once qubit count increases (see below).
 
 ## How to run
 
-\`\`\`bash
+```bash
 uv sync
 
 # core algorithm + benchmarks
@@ -86,13 +86,13 @@ uv run python grovers.py
 
 # sin² curve validation (separate script)
 uv run python sin_squared_validation.py
-\`\`\`
+```
 
 ## Known limitations / next steps
 
-- \`unitary\`/\`superop\`/\`extended_stabilizer\`/\`matrix_product_state\`
+- `unitary`/`superop`/`extended_stabilizer`/`matrix_product_state`
   failure modes not yet diagnosed — worth checking whether they behave
-  differently on unmeasured circuits (\`grover_circuit(password, measure=False)\`).
+  differently on unmeasured circuits (`grover_circuit(password, measure=False)`).
 - Scaling data stops at n=18 (statevector) and n=10 (density_matrix) —
   extrapolation beyond that is inferred from trend, not measured.
 - No noise model / real hardware run included yet — IBM Quantum Open
