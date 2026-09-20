@@ -284,23 +284,22 @@ if __name__ == "__main__":
     PASSWORD = "0001"  # 4-15 bits
 
     print("Target password:", PASSWORD)
-    # run_grover(PASSWORD)
+    run_grover(PASSWORD)
 
-    # Output 1: overlay probability-vs-iteration curves for different shot counts
-    # shots_list = [256, 512, 1024, 2048, 4096, 8192]
-    # probability_amplification_multi_shots(PASSWORD, shots_list)
 
-    # Output 2: benchmark all Aer simulator methods
-    # benchmark_simulators(PASSWORD, shots=8192)
+    # Output 1: benchmark all Aer simulator methods
+    benchmark_simulators(PASSWORD, shots=8192)
+
+    #Output 2: benchmark simulator's breaking point
     passwords_by_n = [
         # "0010",                          # n=4
         # "000010",                        # n=6
         # "00000010",                      # n=8
         # "1100111001",                    # n=10
-        "001011101010",                  # n=12
-        "11000010001111",                # n=14
-        "0110100001110100",              # n=16
-        "011100101110100111",            # n=18
+        # "001011101010",                  # n=12
+        # "11000010001111",                # n=14
+        # "0110100001110100",              # n=16
+        # "011100101110100111",            # n=18
         # "10010000010111100110",          # n=20
         # "1101010010010011001100",        # n=22
         # "000100010110011111000010",      # n=24
@@ -308,6 +307,6 @@ if __name__ == "__main__":
     methods = [
             "automatic",
             "statevector",
-            # "density_matrix",
+            # "density_matrix",  """ Add density matrix only for smaller n values, for larger n values the time complexity sky rockets """
     ]
     benchmark_scaling(passwords_by_n,methods,shots=8192)

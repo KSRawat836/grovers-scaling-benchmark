@@ -1,24 +1,60 @@
-# Grover's Algorithm — Simulator Performance & Scaling Analysis
+# Grover's Algorithm — Simulator Performance & Sin² Validation
 
-An implementation of Grover's search algorithm in Qiskit, extended with two experiments:
-(1) how measurement shot count affects success probability convergence, and
-(2) how different Aer simulator backends scale with qubit count.
+An implementation of Grover's search algorithm in Qiskit, extended with
+three experiments: (1) validating the theoretical sin² amplitude curve
+against simulation, (2) how Aer simulator methods compare at fixed qubit
+count, and (3) how execution time scales with qubit count.
 
 ## What this is
 
 Standard Grover's search (oracle + diffuser, optimal iteration count via
-`floor((pi/4) * sqrt(2^n))`), built to find a target n-bit password. On top
-of the base algorithm, this project investigates two practical questions
-that most tutorial implementations skip:
+`floor((pi/4) * sqrt(2^n))`), split across two files:
 
-1. **How many shots are actually needed** to reliably find the correct
-   answer, and how does that interact with iteration count?
-2. **Which Aer simulator backend should you use**, and where does each
-   one stop being practical as qubit count grows?
+- `grovers.py` — the core algorithm, a single-run demo, and two
+  benchmarking experiments (simulator method comparison, scaling with n)
+- `sin_squared_validation.py` — a focused experiment that deliberately
+  overshoots the optimal iteration count to trace out Grover's full
+  theoretical probability curve, and checks how closely simulation
+  tracks theory at different shot counts
 
 ## Key findings
 
-### Simulator scaling (qubit count vs. execution time)
+### 1. Sin² curve validation (over-rotation)
+
+Grover's algorithm's success probability follows a theoretical curve:
+
+```
+P(k) = sin²((2k + 1) · θ),  where θ = arcsin(1/√(2^n))
+```
+
+Running well past the optimal iteration count (rather than stopping at
+the textbook-recommended point) traces out the full oscillation —
+probability rises to a peak, then falls back down as the algorithm
+"over-rotates" past the correct answer, then rises again.
+
+![Sin² validation](graphs/sin_squared_validation.png)
+
+- All shot counts (256, 2048, 8192, 16384) correctly reproduce the
+  theoretical sin² shape, including the peak (~iteration 25, P≈1.0) and
+  trough (~iteration 50, P≈0) for this 10-qubit password.
+- **256 shots is the only count with visible deviation from theory** —
+  noticeable wobble on the rising/falling edges. 2048 shots and above
+  are visually indistinguishable from the theoretical curve.
+- Practical takeaway: for this circuit size, ~2048 shots is enough to
+  reliably track the true probability curve; fewer shots trade accuracy
+  for speed in a way that's visible, not just theoretical.
+
+### 2. Simulator method comparison (fixed n=4)
+
+![Simulator benchmark](graphs/simulator_benchmark.png)
+
+At small qubit count, `automatic`, `statevector`, and `density_matrix`
+all complete in ~15ms — no meaningful difference yet. The real gap only
+shows up once qubit count increases (see below).
+
+### 3. Scaling: execution time vs qubit count
+
+![Scaling benchmark](graphs/scaling_benchmark.png)
 
 | n  | `automatic` / `statevector` | `density_matrix` |
 |----|------------------------------|-------------------|
@@ -30,53 +66,35 @@ that most tutorial implementations skip:
 | 18 | **~71s**                    | not tested         |
 
 - `statevector`/`automatic` stay near-instant up to ~14 qubits, then hit
-  the expected exponential wall — visible starting at n=16 (25-32s) and
-  worsening to ~71s at n=18, consistent with O(2^n) state vector scaling.
-- `density_matrix` blows up far earlier and far worse: ~1000x slower than
-  statevector by n=10 alone, consistent with its O(4^n) scaling (it
-  tracks an n×n density matrix over a 2^n-dimensional space).
+  the expected exponential wall — visible from n=16 (25-32s) to n=18
+  (~71s), consistent with O(2^n) state vector scaling.
+- `density_matrix` blows up far earlier: ~1000x slower than statevector
+  already by n=10, consistent with its O(4^n) scaling.
 - `unitary`, `superop`, `extended_stabilizer`, and `matrix_product_state`
-  either hang or fail outright on this circuit at n=4 — likely because
-  the multi-controlled-X gates in the oracle/diffuser aren't Clifford
-  operations and these methods aren't suited to measured circuits with
-  this gate structure. Not yet root-caused in depth.
-
-### Practical takeaway
-
-For circuits like this (oracle-based search with multi-controlled gates),
-`statevector` or `automatic` are the only Aer methods that scale
-reasonably past toy sizes on consumer hardware. `density_matrix` becomes
-impractical almost immediately once qubit count leaves single digits.
+  either hang or fail outright on this circuit — likely because the
+  multi-controlled-X gates in the oracle/diffuser aren't Clifford
+  operations, and these methods don't suit measured circuits with this
+  gate structure. Not yet root-caused in depth.
 
 ## How to run
 
-```bash
+\`\`\`bash
 uv sync
+
+# core algorithm + benchmarks
 uv run python grovers.py
-```
 
-Outputs:
-- Circuit diagram + measurement histogram for a single run
-- `graphs/simulator_benchmark.png` — backend comparison at fixed n
-- `graphs/scaling_benchmark.png` — execution time vs. qubit count
-
-### Backend comparison (fixed n=4)
-
-![Simulator benchmark at n=4](graphs/simulator_benchmark.png)
-
-### Scaling: execution time vs qubit count
-
-![Scaling benchmark](graphs/scaling_benchmark.png)
-
-Note the flat region from n=12–14 (transpile/overhead-dominated, not real
-scaling), then the sharp exponential climb from n=14 onward — this is
-where 2^n statevector cost actually starts to bite.
+# sin² curve validation (separate script)
+uv run python sin_squared_validation.py
+\`\`\`
 
 ## Known limitations / next steps
 
-- `unitary`/`superop`/`extended_stabilizer`/`matrix_product_state` failure
-  modes not yet diagnosed — worth investigating whether they work on
-  unmeasured circuits (`grover_circuit(password, measure=False)`).
+- \`unitary\`/\`superop\`/\`extended_stabilizer\`/\`matrix_product_state\`
+  failure modes not yet diagnosed — worth checking whether they behave
+  differently on unmeasured circuits (\`grover_circuit(password, measure=False)\`).
 - Scaling data stops at n=18 (statevector) and n=10 (density_matrix) —
   extrapolation beyond that is inferred from trend, not measured.
-- No noise model / real hardware run included yet (simulator-only so far).
+- No noise model / real hardware run included yet — IBM Quantum Open
+  Plan access (real QPU) is available and is the natural next step, to
+  compare ideal simulator predictions against actual hardware noise.
